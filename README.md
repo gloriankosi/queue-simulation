@@ -1,4 +1,4 @@
-- # CS610 Assignment #1 Implementing queue data type
+# CS610 Assignment #1 Implementing queue data type
 - Implement a queue data type. Then use it to simulate the evolution of waiting queues, by invoking several instances of the queue data type.
 
 ## Process
