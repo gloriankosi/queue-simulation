@@ -24,6 +24,7 @@ using std::cout;
 using std::mt19937;
 using std::normal_distribution;
 using std::random_device;
+using std::uniform_int_distribution;
 using std::vector;
 
 struct Clock;
@@ -65,24 +66,22 @@ int main(int argc, char *argv[])
     random_device rd{};
     mt19937 gen{rd()};
 
-    Queue coachQueue;
-    Queue firstClassQueue;
+    uniform_int_distribution<int> hourUd(0, 23), minUd(0, 59);
 
-    ServiceStation coachServiceStation1;
-    ServiceStation coachServiceStation2;
-    ServiceStation coachServiceStation3;
+    Clock worldClock{hourUd(rd), minUd(rd)};
 
-    ServiceStation firstClassServiceStation1;
-    ServiceStation firstClassServiceStation2;
-    ServiceStation firstClassServiceStation3;
+    Queue coachQueue, firstClassQueue;
+
+    ServiceStation coachServiceStation1, coachServiceStation2, coachServiceStation3;
+    ServiceStation firstClassServiceStation1, firstClassServiceStation2, firstClassServiceStation3;
 
     long checkInDuration; // Total duration of simulation
 
     long coachPasAvgArrivalRate;
-    long coachPasAvgServiceRate; // Average time it takes to service the next customer in queue
+    long coachPasAvgServiceDuration; // Average time it takes to service the next customer in queue
 
     long firstPasClassAvgArrivalRate;
-    long firstPasClassAvgServiceRate;
+    long firstPasClassAvgServiceDuration;
 
     cout << "Please enter an unsigned integer value, this will be "
          << "used as the stopping point for the simulation, this value represents the number of\n"
@@ -92,11 +91,20 @@ int main(int argc, char *argv[])
 
     cout << "Average passenger arrival rate of COACH station (in minutes): ";
     cin >> coachPasAvgArrivalRate;
+    normal_distribution<double> coachPasAvgArrivalRateNd(coachPasAvgArrivalRate, 1);
 
     cout << "Average passenger service duration of COACH station (in minutes): ";
-    cin >> coachPasAvgServiceRate;
+    cin >> coachPasAvgServiceDuration;
     // Draw a new value that denotes how long the Passenger actually took, use ceil to bring it to the nearest min
-    normal_distribution<double> coachPasAvgServiceRateNd(coachPasAvgServiceRate, 1);
+    normal_distribution<double> coachPasAvgServiceDurationNd(coachPasAvgServiceDuration, 1);
+
+    cout << "Average passenger arrival rate of FIRST CLASS station (in minutes): ";
+    cin >> firstPasClassAvgArrivalRate;
+    normal_distribution<double> firstPasClassAvgArrivalRateNd(firstPasClassAvgArrivalRate, 1);
+
+    cout << "Average passenger service duration of FIRST CLASS station (in minutes): ";
+    cin >> firstPasClassAvgServiceDuration;
+    normal_distribution<double> firstPasClassAvgServiceDurationNd(firstPasClassAvgServiceDuration, 1);
 
     return 0;
 }
