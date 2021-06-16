@@ -36,7 +36,6 @@ struct Node;
 
 struct Clock
 {
-    int hour;
     int min;
 };
 struct Passenger
@@ -50,7 +49,8 @@ struct Queue
 {
     long maxSize;
     long currentSize;
-    Node *root;
+    Node *front;
+    Node *back;
 };
 struct Node
 {
@@ -80,10 +80,16 @@ int main(int argc, char *argv[])
     random_device rd{};
     mt19937 gen{rd()};
 
-    uniform_int_distribution<int> hourUd(0, 23), minUd(0, 59);
     uniform_int_distribution<int> serviceClassUd(0, 9);
 
-    Clock worldClock{hourUd(rd), minUd(rd)}, elapsedTime;
+    /**
+     * @brief 
+     * serviceClassUd generates a random integer between 0 and 9 from a uniform distribution, in this
+     * simulation, even numbers denote coach service, and odd numbers denote first class service
+     */
+    int serviceType = serviceClassUd(rd);
+
+    Clock worldClock{0}, elapsedTime;
 
     Queue coachQueue, firstClassQueue;
     Node *coachRoot, *firstClassRoot = new Node(); // Root nodes of Queue (first passenger in line occupate this node)
@@ -123,6 +129,30 @@ int main(int argc, char *argv[])
     cout << "Average passenger service duration of FIRST CLASS station: ";
     cin >> firstPasClassAvgServiceDuration;
     normal_distribution<double> firstPasClassAvgServiceDurationNd(firstPasClassAvgServiceDuration, 1);
+
+    Passenger pas{currentPasNumber};
+    Clock initialPasClock{worldClock.min};
+
+    if (serviceType % 2 == 0) // Even numbered passengers go to coach
+    {
+        pas.serviceType = 0;
+        pas.arrivalTime = initialPasClock;
+        coachRoot->pas;
+        coachRoot->next = nullptr;
+        coachQueue.front = coachRoot;
+        coachQueue.back = coachRoot;
+    }
+    else // Odd numbered passengers go to first class
+    {
+        pas.serviceType = 1;
+        pas.arrivalTime = initialPasClock;
+        firstClassRoot->pas = pas;
+        firstClassRoot->next = nullptr;
+        firstClassQueue.front = firstClassRoot;
+        firstClassQueue.back = firstClassRoot;
+    }
+
+    cout << "Starting..." << endl;
 
     return 0;
 }
