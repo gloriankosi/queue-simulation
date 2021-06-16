@@ -42,12 +42,12 @@ void start(Parameters &);
 struct ArrivalRate
 {
     long coachPasAvgArrivalRate;
-    long firstPasClassAvgArrivalRate;
+    long firstClassPasAvgArrivalRate;
 };
 struct ServiceDuration
 {
     long coachPasAvgServiceDuration;
-    long firstPasClassAvgServiceDuration;
+    long firstClassPasAvgServiceDuration;
 };
 struct Clock
 {
@@ -66,6 +66,8 @@ struct Queue
     long currentSize;
     Node *front;
     Node *back;
+    void enqueue();
+    void dequeue();
 };
 struct Node
 {
@@ -83,18 +85,30 @@ struct Parameters
     long simuDuration; // Total duration of simulation
     long int currentPasNumber;
     mt19937 gen{random_device{}()};
-    void pasArrive();
+
     /**
      * @brief 
      * getFromUniformDist generates a random integer from a uniform distribution, in this
      * simulation, even numbers denote coach service, and odd numbers denote first class service
      */
     long int getFromUniformDist(int, int);
-    long getFromNormalDist(long, long);
+    long int getFromNormalDist(long, long);
 
     ServiceDuration serviceDuration;
     ArrivalRate arrivalRate;
     Clock worldClock, elapsedTime;
+};
+
+void start(Parameters &P)
+{
+    /**
+     * @brief 
+     * Naming aliases
+     */
+    auto &coachA = P.arrivalRate.coachPasAvgArrivalRate;      // alias for coachPasAvgArrivalRate from Arrival struct
+    auto &firstA = P.arrivalRate.firstClassPasAvgArrivalRate; //alias for firstClassPasAvgArrivalRate from Arrival struct
+
+    // params.getFromNormalDist(params.arrivalRate.coachPasAvgArrivalRate, 1);
 };
 
 // TODO: Split main into a function Parameters initParams() for code cleanliness, not needed right now, but needed for later
@@ -139,10 +153,10 @@ int main(int argc, char *argv[])
     cin >> serviceDuration.coachPasAvgServiceDuration;
 
     cout << "Average passenger arrival rate of FIRST CLASS station: ";
-    cin >> arrivalRate.firstPasClassAvgArrivalRate;
+    cin >> arrivalRate.firstClassPasAvgArrivalRate;
 
     cout << "Average passenger service duration of FIRST CLASS station: ";
-    cin >> serviceDuration.firstPasClassAvgServiceDuration;
+    cin >> serviceDuration.firstClassPasAvgServiceDuration;
 
     params.arrivalRate = arrivalRate;
     params.serviceDuration = serviceDuration;
@@ -174,7 +188,13 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
+void Queue::enqueue()
+{
+}
+void Queue::dequeue()
+{
+    this->front = this->front->next;
+}
 long int Parameters::getFromNormalDist(long a, long b)
 {
     normal_distribution<long double> nD(a, b);
@@ -183,7 +203,7 @@ long int Parameters::getFromNormalDist(long a, long b)
 
 long int Parameters::getFromUniformDist(int a, int b)
 {
-    uniform_int_distribution<unsigned int> uD(a, b);
+    uniform_int_distribution<unsigned long int> uD(a, b);
     return uD(Parameters::gen);
 }
 
