@@ -78,6 +78,7 @@ struct Parameters
      */
     long int getFromUniformDist(int, int);
     long getFromNormalDist(long, long);
+    Clock worldClock, elapsedTime;
 };
 
 int main(int argc, char *argv[])
@@ -95,15 +96,14 @@ int main(int argc, char *argv[])
     Parameters params;
 
     params.currentPasNumber = 0;
-
-    Clock worldClock{0}, elapsedTime;
+    params.worldClock = {0}, params.elapsedTime = {0};
 
     Queue coachQueue, firstClassQueue;
     Node *coachRoot, *firstClassRoot = new Node(); // Root nodes of Queue (first passenger in line occupate this node)
 
     ServiceStation coachServiceStation1, coachServiceStation2, coachServiceStation3;
     ServiceStation firstClassServiceStation1, firstClassServiceStation2, firstClassServiceStation3;
-
+    // TODO: MAybe make a new class for Durations and Rates or add them to Parameters
     long checkInDuration; // Total duration of simulation
 
     long coachPasAvgArrivalRate;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
     cin >> firstPasClassAvgServiceDuration;
 
     Passenger pas{params.currentPasNumber};
-    Clock initialPasClock{worldClock.min};
+    Clock initialPasClock{params.worldClock.min};
     int serviceType = params.getFromUniformDist(0, 9);
     if (serviceType % 2 == 0) // Even numbered passengers go to coach
     {
@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
     }
 
     cout << "Starting..." << endl;
+    start(params);
 
     return 0;
 }
@@ -160,13 +161,17 @@ int main(int argc, char *argv[])
 long int Parameters::getFromNormalDist(long a, long b)
 {
     normal_distribution<long double> nD(a, b);
-    return (long int)nD(gen);
+    return (long int)nD(Parameters::gen);
 }
 
 long int Parameters::getFromUniformDist(int a, int b)
 {
-    uniform_int_distribution<int> uD(a, b);
-    return uD(gen);
+    uniform_int_distribution<unsigned int> uD(a, b);
+    return uD(Parameters::gen);
 }
 
-void start(Parameters &params){};
+void start(Parameters &params)
+{
+    cout << params.getFromUniformDist(0, 9) << "\n";
+    cout << params.getFromNormalDist(50, 100) << "\n";
+};
