@@ -33,6 +33,9 @@ class Passenger;
 class ServiceStation;
 struct Queue;
 struct Node;
+struct Parameters;
+
+void start(Parameters &);
 
 struct Clock
 {
@@ -63,6 +66,19 @@ struct ServiceStation
     Clock remainingServiceTime;
     Clock arrivalTime;
 };
+struct Parameters
+{
+    long int currentPasNumber;
+    mt19937 gen{random_device{}()};
+    void pasArrive();
+    /**
+     * @brief 
+     * getFromUniformDist generates a random integer from a uniform distribution, in this
+     * simulation, even numbers denote coach service, and odd numbers denote first class service
+     */
+    long int getFromUniformDist(int, int);
+    long getFromNormalDist(long, long);
+};
 
 int main(int argc, char *argv[])
 {
@@ -75,19 +91,10 @@ int main(int argc, char *argv[])
      * is something wrong with the prng)
      * 
      */
-    long int currentPasNumber = 0;
 
-    random_device rd{};
-    mt19937 gen{rd()};
+    Parameters params;
 
-    uniform_int_distribution<int> serviceClassUd(0, 9);
-
-    /**
-     * @brief 
-     * serviceClassUd generates a random integer between 0 and 9 from a uniform distribution, in this
-     * simulation, even numbers denote coach service, and odd numbers denote first class service
-     */
-    int serviceType = serviceClassUd(rd);
+    params.currentPasNumber = 0;
 
     Clock worldClock{0}, elapsedTime;
 
@@ -115,30 +122,24 @@ int main(int argc, char *argv[])
 
     cout << "Average passenger arrival rate of COACH station: ";
     cin >> coachPasAvgArrivalRate;
-    normal_distribution<double> coachPasAvgArrivalRateNd(coachPasAvgArrivalRate, 1);
 
     cout << "Average passenger service duration of COACH station: ";
     cin >> coachPasAvgServiceDuration;
-    // Draw a new value that denotes how long the Passenger actually took, use ceil to bring it to the nearest min
-    normal_distribution<double> coachPasAvgServiceDurationNd(coachPasAvgServiceDuration, 1);
 
     cout << "Average passenger arrival rate of FIRST CLASS station: ";
     cin >> firstPasClassAvgArrivalRate;
-    normal_distribution<double> firstPasClassAvgArrivalRateNd(firstPasClassAvgArrivalRate, 1);
 
     cout << "Average passenger service duration of FIRST CLASS station: ";
     cin >> firstPasClassAvgServiceDuration;
-    normal_distribution<double> firstPasClassAvgServiceDurationNd(firstPasClassAvgServiceDuration, 1);
 
-    Passenger pas{currentPasNumber};
+    Passenger pas{params.currentPasNumber};
     Clock initialPasClock{worldClock.min};
-
+    int serviceType = params.getFromUniformDist(0, 9);
     if (serviceType % 2 == 0) // Even numbered passengers go to coach
     {
         pas.serviceType = 0;
         pas.arrivalTime = initialPasClock;
         coachRoot->pas;
-        coachRoot->next = nullptr;
         coachQueue.front = coachRoot;
         coachQueue.back = coachRoot;
     }
@@ -147,7 +148,6 @@ int main(int argc, char *argv[])
         pas.serviceType = 1;
         pas.arrivalTime = initialPasClock;
         firstClassRoot->pas = pas;
-        firstClassRoot->next = nullptr;
         firstClassQueue.front = firstClassRoot;
         firstClassQueue.back = firstClassRoot;
     }
@@ -156,3 +156,17 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+long int Parameters::getFromNormalDist(long a, long b)
+{
+    normal_distribution<long double> nD(a, b);
+    return (long int)nD(gen);
+}
+
+long int Parameters::getFromUniformDist(int a, int b)
+{
+    uniform_int_distribution<int> uD(a, b);
+    return uD(gen);
+}
+
+void start(Parameters &params){};
