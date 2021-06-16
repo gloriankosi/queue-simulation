@@ -29,14 +29,26 @@ using std::uniform_int_distribution;
 using std::vector;
 
 struct Clock;
-class Passenger;
-class ServiceStation;
+struct Passenger;
+struct ServiceStation;
 struct Queue;
 struct Node;
 struct Parameters;
+struct ServiceDuration;
+struct Arrival;
 
 void start(Parameters &);
 
+struct ArrivalRate
+{
+    long coachPasAvgArrivalRate;
+    long firstPasClassAvgArrivalRate;
+};
+struct ServiceDuration
+{
+    long coachPasAvgServiceDuration;
+    long firstPasClassAvgServiceDuration;
+};
 struct Clock
 {
     int min;
@@ -68,6 +80,7 @@ struct ServiceStation
 };
 struct Parameters
 {
+    long simuDuration; // Total duration of simulation
     long int currentPasNumber;
     mt19937 gen{random_device{}()};
     void pasArrive();
@@ -78,9 +91,13 @@ struct Parameters
      */
     long int getFromUniformDist(int, int);
     long getFromNormalDist(long, long);
+
+    ServiceDuration serviceDuration;
+    ArrivalRate arrivalRate;
     Clock worldClock, elapsedTime;
 };
 
+// TODO: Split main into a function Parameters initParams() for code cleanliness, not needed right now, but needed for later
 int main(int argc, char *argv[])
 {
     /**
@@ -103,14 +120,9 @@ int main(int argc, char *argv[])
 
     ServiceStation coachServiceStation1, coachServiceStation2, coachServiceStation3;
     ServiceStation firstClassServiceStation1, firstClassServiceStation2, firstClassServiceStation3;
-    // TODO: MAybe make a new class for Durations and Rates or add them to Parameters
-    long checkInDuration; // Total duration of simulation
 
-    long coachPasAvgArrivalRate;
-    long coachPasAvgServiceDuration; // Average time it takes to service the next customer in queue
-
-    long firstPasClassAvgArrivalRate;
-    long firstPasClassAvgServiceDuration;
+    ServiceDuration serviceDuration;
+    ArrivalRate arrivalRate;
 
     cout << "Please enter an unsigned integer value, this will be "
          << "used as the stopping point for the simulation, all values represents the number of "
@@ -118,23 +130,28 @@ int main(int argc, char *argv[])
     cout << '\n';
 
     cout << "Duration time: ";
-    cin >> checkInDuration;
+    cin >> params.simuDuration;
 
     cout << "Average passenger arrival rate of COACH station: ";
-    cin >> coachPasAvgArrivalRate;
+    cin >> arrivalRate.coachPasAvgArrivalRate;
 
     cout << "Average passenger service duration of COACH station: ";
-    cin >> coachPasAvgServiceDuration;
+    cin >> serviceDuration.coachPasAvgServiceDuration;
 
     cout << "Average passenger arrival rate of FIRST CLASS station: ";
-    cin >> firstPasClassAvgArrivalRate;
+    cin >> arrivalRate.firstPasClassAvgArrivalRate;
 
     cout << "Average passenger service duration of FIRST CLASS station: ";
-    cin >> firstPasClassAvgServiceDuration;
+    cin >> serviceDuration.firstPasClassAvgServiceDuration;
+
+    params.arrivalRate = arrivalRate;
+    params.serviceDuration = serviceDuration;
 
     Passenger pas{params.currentPasNumber};
     Clock initialPasClock{params.worldClock.min};
+
     int serviceType = params.getFromUniformDist(0, 9);
+
     if (serviceType % 2 == 0) // Even numbered passengers go to coach
     {
         pas.serviceType = 0;
