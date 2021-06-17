@@ -66,8 +66,8 @@ struct Queue
     long currentSize;
     Node *front;
     Node *back;
-    void enqueue();
-    void dequeue();
+    void enqueue(Clock &, long int &);
+    void dequeue(Clock &);
 };
 struct Node
 {
@@ -80,19 +80,20 @@ struct ServiceStation
     Clock remainingServiceTime;
     Clock arrivalTime;
 };
-struct Parameters
+struct Dist
 {
-    long simuDuration; // Total duration of simulation
-    long int currentPasNumber;
-    mt19937 gen{random_device{}()};
-
     /**
      * @brief 
      * getFromUniformDist generates a random integer from a uniform distribution, in this
      * simulation, even numbers denote coach service, and odd numbers denote first class service
      */
-    long int getFromUniformDist(int, int);
-    long int getFromNormalDist(long, long);
+    static long int getFromUniformDist(long, long);
+    static long int getFromNormalDist(long, long);
+};
+struct Parameters
+{
+    long simuDuration; // Total duration of simulation
+    long int currentPasNumber;
 
     ServiceDuration serviceDuration;
     ArrivalRate arrivalRate;
@@ -164,7 +165,7 @@ int main(int argc, char *argv[])
     Passenger pas{params.currentPasNumber};
     Clock initialPasClock{params.worldClock.min};
 
-    int serviceType = params.getFromUniformDist(0, 9);
+    int serviceType = Dist::getFromUniformDist(0, 9);
 
     if (serviceType % 2 == 0) // Even numbered passengers go to coach
     {
@@ -184,31 +185,33 @@ int main(int argc, char *argv[])
     }
 
     cout << "Starting..." << endl;
+
     start(params);
 
     return 0;
 }
-void Queue::enqueue()
+void Queue::enqueue(Clock &worldClock, long int &currentPasNumber)
 {
+    auto *newPas = new Node();
+    newPas->pas.pasId = currentPasNumber + 1;
+    newPas->pas.serviceType = newPas->pas.arrivalTime.min = worldClock.min;
+    currentPasNumber++;
 }
-void Queue::dequeue()
+void Queue::dequeue(Clock &worldClock)
 {
     this->front = this->front->next;
 }
-long int Parameters::getFromNormalDist(long a, long b)
+long int Dist::getFromNormalDist(long a, long b)
 {
+    random_device rd;
+    mt19937 gen(rd());
     normal_distribution<long double> nD(a, b);
-    return (long int)nD(Parameters::gen);
+    return ceil(nD(gen));
 }
-
-long int Parameters::getFromUniformDist(int a, int b)
+long int Dist::getFromUniformDist(long a, long b)
 {
-    uniform_int_distribution<unsigned long int> uD(a, b);
-    return uD(Parameters::gen);
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<long int> uD(a, b);
+    return uD(gen);
 }
-
-void start(Parameters &params)
-{
-    cout << params.getFromUniformDist(0, 9) << "\n";
-    cout << params.getFromNormalDist(50, 100) << "\n";
-};
