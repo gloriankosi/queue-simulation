@@ -60,7 +60,7 @@ struct ServiceDuration
 };
 struct Clock
 {
-    int min;
+    long min;
     Clock() : min(0){};
     Clock(long a) : min(a){};
 };
@@ -79,8 +79,8 @@ struct Queue
     long currentSize;
     Node *front;
     Node *back;
-    void enqueue(Clock &, long int &);
-    void dequeue(Clock &);
+    void enqueue(long &, long &, int);
+    void dequeue(long &);
 
     Queue() : maxSize(0), currentSize(0){};
 };
@@ -210,12 +210,41 @@ int main(int argc, char *argv[])
 /********** Function Definitions *************/
 void start(Parameters &P, vector<ServiceStation> &serviceStations)
 {
+    // vectors operating as stacks for vacant service stations, need to be split because first class can take coach when all of coach are occupied
+    vector<ServiceStation *> vacantCoachStations;
+    vector<ServiceStation *> vacantFirstClassStations;
+
+    /**
+    * @brief 
+    * Lambda functions
+    */
+    auto getNextPasArrivalTime = [](long int a, int b)
+    { return Dist::getFromNormalDist(a, b); };
+
+    auto setVacantStations = [&vacantCoachStations, &vacantFirstClassStations](vector<ServiceStation> &serviceStations)
+    {
+        for (auto &station : serviceStations)
+        {
+            if (station.currentPas == nullptr)
+            {
+                if (station.type == 0)
+                {
+                    vacantCoachStations.emplace_back(&station);
+                }
+                else
+                {
+                    vacantFirstClassStations.emplace_back(&station);
+                }
+            }
+        };
+    };
+
     /**
      * @brief 
      * Naming aliases and variable unpacking
      */
-    auto &coachA = P.arrivalRate.coachPasAvgArrivalRate;      // alias for coachPasAvgArrivalRate from Arrival struct
-    auto &firstA = P.arrivalRate.firstClassPasAvgArrivalRate; //alias for firstClassPasAvgArrivalRate from Arrival struct
+    auto &coachPasAvgArrivalRate = P.arrivalRate.coachPasAvgArrivalRate;           // alias for coachPasAvgArrivalRate from Arrival struct
+    auto &firstClassPasAvgArrivalRate = P.arrivalRate.firstClassPasAvgArrivalRate; //alias for firstClassPasAvgArrivalRate from Arrival struct
 
     auto &simuDuration = P.simuDuration;
     auto &currentPasNumber = P.currentPasNumber;
@@ -225,48 +254,51 @@ void start(Parameters &P, vector<ServiceStation> &serviceStations)
 
     auto &currentTime = P.worldClock.min;
 
-    auto nextCoachPasArrivalTime = Dist::getFromNormalDist(coachA, 1);
-    auto nextFirstClassPasArrivalTime = Dist::getFromNormalDist(firstA, 1);
+    auto nextCoachPasArrivalTime = getNextPasArrivalTime(coachPasAvgArrivalRate, 1);
+    auto nextFirstClassPasArrivalTime = getNextPasArrivalTime(firstClassPasAvgArrivalRate, 1);
 
-    vector<ServiceStation *> availableCoachStations;
-    vector<ServiceStation *> availableFirstClassStations;
+    long coachArrivalInterval = 0;
+    long firstClassArrivalInterval = 0;
 
-    auto checkAvailable = [&availableCoachStations, &availableFirstClassStations](vector<ServiceStation> &serviceStations)
+    // set initial vacant service stations (should be all)
+    setVacantStations(serviceStations);
+
+    // TODO: Need to add pas to service stations and keep track of progress/elapsed time
+    for (long i = currentTime; i <= simuDuration; i++)
     {
-        for (auto &station : serviceStations)
+        coachArrivalInterval++;
+        firstClassArrivalInterval++;
+        if (coachArrivalInterval >= nextCoachPasArrivalTime)
         {
-            if (station.currentPas == nullptr)
-            {
-                if (station.type == 0)
-                {
-                    availableCoachStations.emplace_back(&station);
-                }
-                else
-                {
-                    availableFirstClassStations.emplace_back(&station);
-                }
-            }
+            coachQueue->enqueue(currentTime, currentPasNumber, 0);
+            nextCoachPasArrivalTime = getNextPasArrivalTime(coachPasAvgArrivalRate, 1);
+            coachArrivalInterval = 0;
         }
-    };
-
-    checkAvailable(serviceStations);
-
-    for (auto i = currentTime; i <= simuDuration; i++)
-    {
-        if (currentTime > nextCoachPasArrivalTime)
+        if (firstClassArrivalInterval >= nextFirstClassPasArrivalTime)
         {
+            firstClassQueue->enqueue(currentTime, currentPasNumber, 0);
+            nextFirstClassPasArrivalTime = getNextPasArrivalTime(firstClassPasAvgArrivalRate, 1);
+            firstClassArrivalInterval = 0;
         }
     }
 };
 
-void Queue::enqueue(Clock &worldClock, long int &currentPasNumber)
+void Queue::enqueue(long &currentTime, long &currentPasNumber, int serviceType)
 {
     auto *newPas = new Node();
     newPas->pas.pasId = currentPasNumber + 1;
-    newPas->pas.serviceType = newPas->pas.arrivalTime.min = worldClock.min;
+    newPas->pas.serviceType = serviceType;
+    newPas->pas.arrivalTime.min = currentTime;
+    if (this->front == nullptr)
+    {
+        this->front = newPas;
+        this->back = newPas;
+    }
+    this->back->next = newPas;
+    this->back = newPas;
     currentPasNumber++;
 }
-void Queue::dequeue(Clock &worldClock)
+void Queue::dequeue(long &currentTime)
 {
     this->front = this->front->next;
 }
