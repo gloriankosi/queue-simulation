@@ -33,6 +33,9 @@ using std::reference_wrapper;
 using std::uniform_int_distribution;
 using std::vector;
 
+const int COACH_SIZE = 4;
+const int FIRST_CLASS_SIZE = 3;
+
 /********************* Class declarations ***************************/
 struct Clock;
 struct Passenger;
@@ -45,8 +48,8 @@ struct Arrival;
 
 /********************* Function declarations *************************/
 void start(Parameters &, vector<ServiceStation> &);
-void servicePas(vector<ServiceStation *> &, Node *);
-void setNearestToCompletion(ServiceStation *, Node *);
+void servicePas(vector<ServiceStation *> &, Node *, vector<ServiceStation *> &, long &);
+
 /********************* Class definitions ***************************/
 struct ArrivalRate
 {
@@ -94,11 +97,12 @@ struct Node
 struct ServiceStation
 {
     long totalTimeInUse; // Divide by total simulation time to get percentage
+    long totalPassengersServiced;
     int type;
     Node *node;
     Clock arrivalTime;
     Clock remainingServiceTime;
-    ServiceStation(int a) : type(a), node(nullptr), totalTimeInUse(0){};
+    ServiceStation(int a) : type(a), node(nullptr), totalTimeInUse(0), totalPassengersServiced(0), remainingServiceTime(-1){};
 };
 struct Dist
 {
@@ -204,7 +208,7 @@ int main(int argc, char *argv[])
     params.firstClassQueue = &firstClassQueue;
     params.coachQueue = &coachQueue;
 
-    cout << "Starting..." << endl;
+    cout << "Running..." << endl;
 
     start(params, serviceStations);
 
@@ -218,6 +222,8 @@ void start(Parameters &P, vector<ServiceStation> &serviceStations)
     vector<ServiceStation *> vacantCoachStations;
     vector<ServiceStation *> vacantFirstClassStations;
 
+    vector<ServiceStation *> occupiedCoachStations;
+    vector<ServiceStation *> occupiedFirstClassStations;
     /**
     * @brief 
     * Lambda functions
@@ -278,64 +284,108 @@ void start(Parameters &P, vector<ServiceStation> &serviceStations)
     long coachArrivalInterval = 0;
     long firstClassArrivalInterval = 0;
 
+    long finishInterval = -1;
+
     // set initial vacant service stations (should be all)
     setVacantStations(serviceStations);
 
-    // Use passenger times, station with lowest time for passenger wins these
-    ServiceStation *nearestToCompletionCoach = nullptr;
-    ServiceStation *nearestToCompletionFirstClass = nullptr;
-
-    // TODO: Need to add pas to service stations and keep track of progress/elapsed time
     for (long i = currentTime; i <= simuDuration; i++)
     {
         coachArrivalInterval++;
         firstClassArrivalInterval++;
+        finishInterval++;
+        if (vacantCoachStations.empty() || vacantFirstClassStations.empty())
+        {
+            setVacantStations(serviceStations);
+        }
 
         if (coachArrivalInterval >= nextCoachPasArrivalTime)
         {
             coachQueue->enqueue(currentTime, currentPasNumber, 0, getPasServiceTime(coachAvgServiceTime, 1));
+            cout << YELLOW << "Passenger " << coachQueue->back->pas.pasId << " arrived." << RESET << MAGENTA << "(COACH)" << RESET << '\n';
             nextCoachPasArrivalTime = getNextPasArrivalTime(coachPasAvgArrivalRate, 1);
             currentPasNumber++;
             coachArrivalInterval = 0;
         }
-        if (firstClassArrivalInterval >= nextFirstClassPasArrivalTime)
+        if (firstClassArrivalInterval >= nextFirstClassPasArrivalTime) // if interval is greater or equal to the next arrival time, add the next pas in queue
         {
             firstClassQueue->enqueue(currentTime, currentPasNumber, 0, getPasServiceTime(firstClassAvgServiceTime, 1));
+            cout << YELLOW << "Passenger " << firstClassQueue->back->pas.pasId << " arrived." << RESET << MAGENTA << "(FIRST CLASS)" << RESET << '\n';
             nextFirstClassPasArrivalTime = getNextPasArrivalTime(firstClassPasAvgArrivalRate, 1);
             currentPasNumber++;
             firstClassArrivalInterval = 0;
         }
         if ((firstClassQueue->front != nullptr) && (!vacantFirstClassStations.empty()))
         {
-            servicePas(vacantFirstClassStations, firstClassQueue->front);
+            servicePas(vacantFirstClassStations, firstClassQueue->front, occupiedFirstClassStations, finishInterval);
         }
         if ((coachQueue->front != nullptr) && (!vacantCoachStations.empty()))
         {
-            servicePas(vacantCoachStations, coachQueue->front);
+            servicePas(vacantCoachStations, coachQueue->front, occupiedCoachStations, finishInterval);
+        }
+        if (!occupiedCoachStations.empty())
+        {
+            for (auto &station : occupiedCoachStations)
+            {
+                if (station->remainingServiceTime.min <= finishInterval)
+                {
+                    cout << MAGENTA << "Passenger " << station->node->pas.pasId << " is finished being serviced."
+                         << RESET << "\n";
+                    station->remainingServiceTime = 0;
+                    occupiedCoachStations.erase(std::remove(occupiedCoachStations.begin(), occupiedCoachStations.end(), station), occupiedCoachStations.end());
+                    coachQueue->dequeue(i);
+                }
+            }
+        }
+        if (occupiedFirstClassStations.empty() == false)
+        {
+            for (auto &station : occupiedFirstClassStations)
+            {
+                if (station->remainingServiceTime.min <= finishInterval)
+                {
+                    cout << MAGENTA << "Passenger " << station->node->pas.pasId << " is finished being serviced."
+                         << RESET << "\n";
+                    station->remainingServiceTime = 0;
+                    occupiedFirstClassStations.erase(std::remove(occupiedFirstClassStations.begin(), occupiedFirstClassStations.end(), station), occupiedFirstClassStations.end());
+                    firstClassQueue->dequeue(i);
+                }
+            }
         }
     }
 };
 
-void setNearestToCompletion(ServiceStation *nearestToCompletion, Node *node)
-{
-    if (nearestToCompletion == nullptr)
-    {
-        // nearestToCompletion = node->stationAssigned;
-    }
-}
-
-void servicePas(vector<ServiceStation *> &availableStations, Node *node)
+void servicePas(vector<ServiceStation *> &availableStations, Node *node, vector<ServiceStation *> &occupiedServiceStation, long &finishInterval)
 {
     auto station = availableStations.back();
+
     station->node = node;
+    station->remainingServiceTime.min = node->pas.serviceTime.min;
     station->totalTimeInUse += node->pas.serviceTime.min;
+
+    node->stationAssigned = station;
+
+    station->totalPassengersServiced += 1;
+
+    if (finishInterval > 0)
+    {
+        if (station->remainingServiceTime.min < finishInterval)
+        {
+            finishInterval = station->remainingServiceTime.min;
+        }
+    }
+    else
+    {
+        finishInterval = station->remainingServiceTime.min;
+    }
+
+    occupiedServiceStation.emplace_back(station);
     availableStations.pop_back();
 };
 
 void Queue::enqueue(long &currentTime, long &currentPasNumber, int serviceType, long serviceTime)
 {
     auto newPas = new Node();
-    newPas->pas.pasId = currentPasNumber + 1;
+    newPas->pas.pasId = currentPasNumber;
     newPas->pas.serviceType = serviceType;
     newPas->pas.arrivalTime.min = currentTime;
     newPas->pas.serviceTime.min = serviceTime;
@@ -343,17 +393,34 @@ void Queue::enqueue(long &currentTime, long &currentPasNumber, int serviceType, 
     if (this->front == nullptr) // means the entire queue is empty
     {
         this->front = newPas;
+        this->front->next = newPas;
         this->back = newPas;
     }
 
     this->back->next = newPas; // should be nullptr initially, set it to newPas
     this->back = this->back->next;
-    cout << this->back->pas.pasId << "\n";
+
+    this->currentSize = this->currentSize + 1;
+
+    if (this->currentSize >= this->maxSize)
+    {
+        this->maxSize = this->currentSize;
+    }
 };
 
 void Queue::dequeue(long &currentTime)
 {
-    this->front = this->front->next;
+    if (this->front == nullptr)
+    {
+        this->currentSize = 0;
+        this->back = nullptr;
+        return;
+    }
+    else
+    {
+        this->currentSize = this->currentSize - 1;
+        this->front = this->front->next;
+    }
 };
 
 long int Dist::getFromNormalDist(long a, long b)
