@@ -100,7 +100,7 @@ Node *getPas(long, long, long, long);
 
 void emptyQueue(Queue *, Queue *,
                 vector<ServiceStation *> &, vector<ServiceStation *> &,
-                vector<ServiceStation *> &, vector<ServiceStation *> &, long);
+                vector<ServiceStation *> &, vector<ServiceStation *> &, long &);
 
 void printFinalStats(Queue *, Queue *, vector<ServiceStation *> &, vector<ServiceStation *> &, long &);
 void printFinishedServiced(long, string);
@@ -126,6 +126,15 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief 
+ * 
+ * @param coachQueue 
+ * @param firstClassQueue 
+ * @param coachStations 
+ * @param firstClassStations 
+ * @param simDuration 
+ */
 void printFinalStats(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceStation *> &coachStations, vector<ServiceStation *> &firstClassStations, long &simDuration)
 {
     long totalCoachPassengersServiced = 0;
@@ -180,6 +189,10 @@ void printFinalStats(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceSt
     cout << "Total time of simulation: " << simDuration << "\n";
 }
 
+/**
+ * @brief 
+ * 
+ */
 void printEmptyingQueueMsg()
 {
     cout << MAGENTA << "------------------"
@@ -190,18 +203,40 @@ void printEmptyingQueueMsg()
          << "\n";
 }
 
+/**
+ * @brief 
+ * 
+ * @param pasId 
+ * @param arrivalToServiceTime 
+ * @param serviceType 
+ */
 void printCurrentPasServicing(long pasId, long arrivalToServiceTime, string serviceType)
 {
     cout << L_GREEN << "Passenger " << pasId << " is currently being serviced at time: "
          << arrivalToServiceTime << "." << RESET << RED << serviceType << RESET << "\n";
 }
 
+/**
+ * @brief 
+ * 
+ * @param pasId 
+ * @param serviceType 
+ */
 void printFinishedServiced(long pasId, string serviceType)
 {
     cout << CYAN << "Passenger " << pasId << " has finished service."
          << serviceType << RESET << "\n";
 }
 
+/**
+ * @brief 
+ * 
+ * @param queue 
+ * @param vacantServiceStations 
+ * @param arrivalToServiceTime 
+ * @param serviceType 
+ * @return ** void 
+ */
 void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, long arrivalToServiceTime, string serviceType)
 {
     if (queue->front == nullptr || vacantServiceStations.empty() == true)
@@ -220,6 +255,15 @@ void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, l
     queue->dequeue();
 }
 
+/**
+ * @brief Get the Finished Serviced Passengers and emplace finished service station back to vacantServiceStations
+ * 
+ * @param vacantServiceStations 
+ * @param serviceStations 
+ * @param serviceType 
+ * @param finishInterval 
+ * @return ** void 
+ */
 void getFinishedServicedPassengers(vector<ServiceStation *> &vacantServiceStations, vector<ServiceStation *> &serviceStations, string serviceType, long &finishInterval)
 {
     bool resetFinishInterval = true;
@@ -245,6 +289,11 @@ void getFinishedServicedPassengers(vector<ServiceStation *> &vacantServiceStatio
     }
 }
 
+/**
+ * @brief Get the Sim Duration from user
+ * 
+ * @return ** long 
+ */
 long getSimDuration()
 {
     long simuDuration;
@@ -257,6 +306,11 @@ long getSimDuration()
     return simuDuration;
 };
 
+/**
+ * @brief Get the Coach Avg Arrival Rate from user
+ * 
+ * @return ** long 
+ */
 long getCoachAvgArrivalRate()
 {
     long coachPasAvgArrivalRate;
@@ -265,6 +319,11 @@ long getCoachAvgArrivalRate()
     return coachPasAvgArrivalRate;
 };
 
+/**
+ * @brief Get the Coach Avg Service Duration from user
+ * 
+ * @return ** long 
+ */
 long getCoachAvgServiceDuration()
 {
     long coachPasAvgServiceDuration;
@@ -273,6 +332,11 @@ long getCoachAvgServiceDuration()
     return coachPasAvgServiceDuration;
 }
 
+/**
+ * @brief Get the First Class Avg Arrival Rate from user
+ * 
+ * @return ** long 
+ */
 long getFirstClassAvgArrivalRate()
 {
     long firstClassPasAvgArrivalRate;
@@ -281,6 +345,11 @@ long getFirstClassAvgArrivalRate()
     return firstClassPasAvgArrivalRate;
 }
 
+/**
+ * @brief Get the First Class Avg Service Duration from user
+ * 
+ * @return long 
+ */
 long getFirstClassAvgServiceDuration()
 {
     long firstClassPasAvgServiceDuration;
@@ -291,6 +360,13 @@ long getFirstClassAvgServiceDuration()
     return firstClassPasAvgServiceDuration;
 }
 
+/**
+ * @brief Get a value from a Normal Distribution
+ * 
+ * @param a 
+ * @param b 
+ * @return long 
+ */
 long getFromNormalDist(long a, long b)
 {
     random_device rd;
@@ -299,6 +375,13 @@ long getFromNormalDist(long a, long b)
     return ceil(nD(gen));
 }
 
+/**
+ * @brief Get a value from a Uniform Distribution
+ * 
+ * @param a 
+ * @param b 
+ * @return long int 
+ */
 long int getFromUniformDist(long a, long b)
 {
     random_device rd;
@@ -307,6 +390,12 @@ long int getFromUniformDist(long a, long b)
     return uD(gen);
 };
 
+/**
+ * @brief Create a Service Station Vector object
+ * 
+ * @param n 
+ * @return ** vector<ServiceStation *> 
+ */
 vector<ServiceStation *> createServiceStationVector(int n)
 {
     vector<ServiceStation *> stationVec;
@@ -317,6 +406,14 @@ vector<ServiceStation *> createServiceStationVector(int n)
     return stationVec;
 }
 
+/**
+ * @brief Get the Pas object
+ * 
+ * @param pasId 
+ * @param serviceTimeNeeded 
+ * @param arrivalTime 
+ * @return Node* 
+ */
 Node *getPas(long pasId, long serviceTimeNeeded, long arrivalTime)
 {
     auto node = new Node(
@@ -324,21 +421,48 @@ Node *getPas(long pasId, long serviceTimeNeeded, long arrivalTime)
     return node;
 }
 
+/**
+ * @brief Prints pasid of passenger that arrived
+ * 
+ * @param pasId 
+ * @param serviceType 
+ * @return ** void 
+ */
 void printPasArrivalToQueue(long pasId, string serviceType)
 {
     cout << YELLOW << "Passenger " << pasId << " arrived." << RESET << MAGENTA << serviceType << RESET << '\n';
 }
 
+/**
+ * @brief Adds node to queue and prints arrival
+ * 
+ * @param queue 
+ * @param node 
+ * @param serviceType 
+ * @return ** void 
+ */
 void addToQueue(Queue *queue, Node *node, string serviceType)
 {
     queue->enqueue(node);
     printPasArrivalToQueue(queue->back->pasId, serviceType);
 }
 
+/**
+ * @brief Empties remaining nodes in queue
+ * 
+ * @param coachQueue 
+ * @param firstClassQueue 
+ * @param vacantCoachStations 
+ * @param vacantFirstClassStations 
+ * @param coachStations 
+ * @param firstClassStations 
+ * @param simDuration 
+ * @return ** void 
+ */
 void emptyQueue(Queue *coachQueue, Queue *firstClassQueue,
                 vector<ServiceStation *> &vacantCoachStations, vector<ServiceStation *> &vacantFirstClassStations,
                 vector<ServiceStation *> &coachStations, vector<ServiceStation *> &firstClassStations,
-                long simDuration)
+                long &simDuration)
 {
     printEmptyingQueueMsg();
     long coachServiceFinishInterval = 0;
