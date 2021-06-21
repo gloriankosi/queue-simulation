@@ -3,6 +3,12 @@
  * @author Glorian Kosi
  * @brief 
  * 
+ * Needs C++20 to run
+ * example:
+ * 
+ * g++ -g -std=c++2a queue-simulation.cc -o qs
+ * ./qs
+ * 
  * See README
  * 
  */
@@ -472,11 +478,30 @@ void emptyQueue(Queue *coachQueue, Queue *firstClassQueue,
         coachServiceFinishInterval++;
         firstClassServiceFinishInterval++;
         simDuration++;
+
         servicePas(coachQueue, vacantCoachStations, simDuration, "COACH");
         servicePas(firstClassQueue, vacantFirstClassStations, simDuration, "FIRST CLASS");
 
         getFinishedServicedPassengers(vacantCoachStations, coachStations, "COACH", coachServiceFinishInterval);
         getFinishedServicedPassengers(vacantFirstClassStations, firstClassStations, "FIRST CLASS", firstClassServiceFinishInterval);
+    }
+
+    // Get finished passengers left over in stations that couldnt be iterated
+    for (auto &i : coachStations)
+    {
+        if (i->currentPas != nullptr)
+        {
+            printFinishedServiced(i->currentPas->pasId, "COACH");
+            simDuration++;
+        }
+    }
+    for (auto &i : firstClassStations)
+    {
+        if (i->currentPas != nullptr)
+        {
+            printFinishedServiced(i->currentPas->pasId, "FIRST CLASS");
+            simDuration++;
+        }
     }
 }
 
