@@ -102,7 +102,7 @@ void emptyQueue(Queue *, Queue *,
                 vector<ServiceStation *> &, vector<ServiceStation *> &,
                 vector<ServiceStation *> &, vector<ServiceStation *> &, long);
 
-void printFinalStats();
+void printFinalStats(Queue *, Queue *, vector<ServiceStation *> &, vector<ServiceStation *> &, long &);
 void printFinishedServiced(long, string);
 void printPasArrivalToQueue(long, string);
 void printEmptyingQueueMsg();
@@ -125,6 +125,61 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+void printFinalStats(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceStation *> &coachStations, vector<ServiceStation *> &firstClassStations, long &simDuration)
+{
+    long totalCoachPassengersServiced = 0;
+    long totalFirstclassPassengersServiced = 0;
+    long totalPassengersServiced = 0;
+
+    for (auto &i : coachStations)
+    {
+        totalCoachPassengersServiced += i->numOfPassengersServiced;
+    }
+
+    for (auto &i : firstClassStations)
+    {
+        totalFirstclassPassengersServiced += i->numOfPassengersServiced;
+    }
+
+    totalPassengersServiced = totalCoachPassengersServiced + totalFirstclassPassengersServiced;
+
+    cout << "------------------Final Stats------------------"
+         << "\n"
+         << "\n";
+
+    cout << "Total # of Coach Passengers serviced: " << totalCoachPassengersServiced << "\n";
+    cout << "Total # of First Class Passengers serviced: " << totalFirstclassPassengersServiced << "\n";
+    cout << "Total # of Passengers serviced: " << totalPassengersServiced << "\n";
+
+    cout << "\n\n";
+
+    int counter = 0;
+
+    for (auto &i : coachStations)
+    {
+        counter++;
+        cout << "\n";
+        cout << "COACH Service Station " << counter << "\n"
+             << "Serviced: " << i->numOfPassengersServiced << " passengers."
+             << "\n";
+        cout << " Percentage of time in use: " << i->totalTimeInService / simDuration;
+        cout << "\n";
+    }
+    for (auto &i : firstClassStations)
+    {
+        counter++;
+        cout << "\n";
+        cout << "FIRST CLASS Service Station " << counter << "\n"
+             << "Serviced: " << i->numOfPassengersServiced << " passengers."
+             << "\n";
+        cout << " Percentage of time in use: " << i->totalTimeInService / simDuration;
+        cout << "\n";
+    }
+    cout << "\n\n";
+    cout << "Total time of simulation: " << simDuration << "\n";
+}
+
 void printEmptyingQueueMsg()
 {
     cout << MAGENTA << "------------------"
@@ -134,6 +189,7 @@ void printEmptyingQueueMsg()
          << CYAN << "------------------" << RESET
          << "\n";
 }
+
 void printCurrentPasServicing(long pasId, long arrivalToServiceTime, string serviceType)
 {
     cout << L_GREEN << "Passenger " << pasId << " is currently being serviced at time: "
@@ -154,6 +210,7 @@ void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, l
     }
     auto station = vacantServiceStations.back();
 
+    station->numOfPassengersServiced++;
     station->currentPas = queue->front;
     station->totalTimeInService += station->currentPas->serviceTimeNeeded;
 
@@ -365,4 +422,5 @@ void start(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceStation *> &
     }
 
     emptyQueue(coachQueue, firstClassQueue, vacantCoachStations, vacantFirstClassStations, coachStations, firstClassStations, simDuration);
+    printFinalStats(coachQueue, firstClassQueue, coachStations, firstClassStations, simDuration);
 }
