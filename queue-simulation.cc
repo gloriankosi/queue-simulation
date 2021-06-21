@@ -1,13 +1,9 @@
 /**
- * 
- * @file queue-simulation.cc
+ * @file queue-sim.cc
  * @author Glorian Kosi
  * @brief 
  * 
- * See readme
- * To run:
- * g++ -std=c++2a queue-simulation.cc -o executable_name
- * ./executable_name
+ * See README
  * 
  */
 
@@ -15,6 +11,8 @@
 #define RED "\033[31m"
 #define YELLOW "\033[33m"
 #define MAGENTA "\033[35m"
+#define L_GREEN "\033[92m"
+#define CYAN "\033[36m"
 
 #include <iostream>
 #include <iterator>
@@ -22,419 +20,312 @@
 #include <vector>
 #include <cmath>
 
-using std::ceil;
 using std::cin;
 using std::cout;
-using std::endl;
 using std::mt19937;
 using std::normal_distribution;
 using std::random_device;
 using std::reference_wrapper;
+using std::string;
 using std::uniform_int_distribution;
 using std::vector;
 
-const int COACH_SIZE = 4;
-const int FIRST_CLASS_SIZE = 3;
+long getSimDuration();
 
-/********************* Class declarations ***************************/
-struct Clock;
-struct Passenger;
-struct ServiceStation;
-struct Queue;
-struct Node;
-struct Parameters;
-struct ServiceDuration;
-struct Arrival;
+long getCoachAvgArrivalRate();
+long getCoachAvgServiceDuration();
 
-/********************* Function declarations *************************/
-void start(Parameters &, vector<ServiceStation> &);
-void servicePas(vector<ServiceStation *> &, Node *, vector<ServiceStation *> &, long &);
+long getFirstClassAvgArrivalRate();
+long getFirstClassAvgServiceDuration();
 
-/********************* Class definitions ***************************/
-struct ArrivalRate
+long getFromNormalDist(long, long);
+long getFromUniformDist(long, long);
+
+struct Node
 {
-    long coachPasAvgArrivalRate;
-    long firstClassPasAvgArrivalRate;
+    long pasId;
+    long serviceTimeNeeded;
+    // long arrivalTime;
+    Node *next;
+    Node() : pasId(-1), serviceTimeNeeded(-1), next(nullptr){};
+    Node(long pasId, long serviceTimeNeeded, long arrivalTime) : pasId(pasId),
+                                                                 serviceTimeNeeded(serviceTimeNeeded),
+                                                                 next(nullptr){};
 };
-struct ServiceDuration
-{
-    long coachPasAvgServiceDuration;
-    long firstClassPasAvgServiceDuration;
-};
-struct Clock
-{
-    long min;
-    Clock() : min(0){};
-    Clock(long a) : min(a){};
-};
-struct Passenger
-{
-    long int pasId;
-    int serviceType;
-    Clock arrivalTime; // Arrival to queue
-    Clock serviceTime; // Time needed for service
-    Passenger() : pasId(-1), serviceType(-1){};
-    Passenger(long a) : pasId(a){};
-};
+
 struct Queue
 {
     long maxSize;
     long currentSize;
+
     Node *front;
     Node *back;
-    void enqueue(long &, long &, int, long);
-    void dequeue(long &);
 
-    Queue() : maxSize(0), currentSize(0), front(nullptr){};
+    void enqueue(Node *node)
+    {
+        if (back == nullptr)
+        {
+            currentSize++;
+            currentSize >= maxSize ? maxSize = currentSize : maxSize;
+            front = back = node;
+            return;
+        }
+        back->next = node;
+        back = node;
+    }
+    void dequeue()
+    {
+        if (front == nullptr)
+            return;
+        currentSize--;
+        Node *temp = front;
+        front = front->next;
+
+        if (front == nullptr)
+            back = nullptr;
+    }
+
+    Queue() : maxSize(0), currentSize(0), front(nullptr), back(nullptr){};
 };
-struct Node
-{
-    Passenger pas;
-    Node *next;
-    ServiceStation *stationAssigned;
-    Node() : stationAssigned(nullptr), next(nullptr){};
-};
+
 struct ServiceStation
 {
-    long totalTimeInUse; // Divide by total simulation time to get percentage
-    long totalPassengersServiced;
-    int type;
-    Node *node;
-    Clock arrivalTime;
-    Clock remainingServiceTime;
-    ServiceStation(int a) : type(a), node(nullptr), totalTimeInUse(0), totalPassengersServiced(0), remainingServiceTime(-1){};
-};
-struct Dist
-{
-    /**
-     * @brief 
-     * getFromUniformDist generates a random integer from a uniform distribution, in this
-     * simulation, even numbers denote coach service, and odd numbers denote first class service.
-     */
-    static long int getFromUniformDist(long, long);
-    static long int getFromNormalDist(long, long);
-};
-/**
- * @brief 
- * Contains closely related variables needed in most cases that can't be combined into more classes
- * or can't be removed without the use of global variables.
- */
-struct Parameters
-{
-    long simuDuration; // Total duration of simulation
-    long currentPasNumber;
-
-    Queue *firstClassQueue;
-    Queue *coachQueue;
-    ServiceDuration serviceDuration;
-    ArrivalRate arrivalRate;
-    Clock worldClock, elapsedTime;
-    Parameters() : simuDuration(0), currentPasNumber(0){};
+    long totalTimeInService;
+    long numOfPassengersServiced;
+    Node *currentPas;
+    ServiceStation() : totalTimeInService(0), currentPas(nullptr){};
 };
 
-// TODO: Split main into a function Parameters initParams() for code cleanliness, not needed right now, but needed for later
+vector<ServiceStation *> createServiceStationVector(int);
+Node *getPas(long, long, long, long);
+
+void printFinishedServiced(long, string);
+void getFinishedServicedPassengers(vector<ServiceStation *> &, vector<ServiceStation *> &, string, long &);
+void servicePas(Queue *, vector<ServiceStation *> &, long, long, string);
+void printPasArrivalToQueue(long, string);
+void addToQueue(Queue *, long, Node *, string);
+void start(Queue *, Queue *, vector<ServiceStation *> &, vector<ServiceStation *> &);
+
 int main(int argc, char *argv[])
 {
-    /**
-     * @brief 
-     * Passenger IDs are incremented by 1 iteratively, currentPasNumber keeps track of the latest reserved
-     * long int, the next passenger yet to arrive in line is currentPasNumber + 1, the second is currentPasNumber + 2, and so on.
-     * 
-     * Queues are not guaranteed to have Passenger IDs in numerical order (nor should it happen, if it does, there
-     * is something wrong with the prng)
-     * 
-     */
 
-    Parameters params;
+    auto *coachQueue = new Queue();
+    auto *firstClassQueue = new Queue();
 
-    Queue coachQueue, firstClassQueue;
-    Node *coachRoot, *firstClassRoot = new Node(); // Root nodes of Queue (first passenger in line occupate this node)
+    vector<ServiceStation *> coachStations = createServiceStationVector(3);
+    vector<ServiceStation *> firstClassStations = createServiceStationVector(2);
 
-    ServiceStation coachServiceStation1(0), coachServiceStation2(0), coachServiceStation3(0), coachServiceStation4(0);
-    ServiceStation firstClassServiceStation1(1), firstClassServiceStation2(1), firstClassServiceStation3(1);
-
-    vector<ServiceStation> serviceStations{coachServiceStation1, coachServiceStation2, coachServiceStation3, coachServiceStation4,
-                                           firstClassServiceStation1, firstClassServiceStation2, firstClassServiceStation3};
-
-    ServiceDuration serviceDuration;
-    ArrivalRate arrivalRate;
-
-    cout << "Please enter an unsigned integer value, this will be "
-         << "used as the stopping point for the simulation, all values represents the number of "
-         << "minutes elapsed in the simulation, which goes by iterations in a loop," << MAGENTA << " not real time." << RESET;
-    cout << '\n';
-
-    cout << "Duration time: ";
-    cin >> params.simuDuration;
-
-    cout << "Average passenger arrival rate of COACH station (for best measure, enter value significantly less than duration time): ";
-    cin >> arrivalRate.coachPasAvgArrivalRate;
-
-    cout << "Average passenger service duration of COACH station: ";
-    cin >> serviceDuration.coachPasAvgServiceDuration;
-
-    cout << "Average passenger arrival rate of FIRST CLASS station (for best measure, enter value significantly less than duration time): ";
-    cin >> arrivalRate.firstClassPasAvgArrivalRate;
-
-    cout << "Average passenger service duration of FIRST CLASS station: ";
-    cin >> serviceDuration.firstClassPasAvgServiceDuration;
-
-    params.arrivalRate = arrivalRate;
-    params.serviceDuration = serviceDuration;
-
-    Passenger pas{params.currentPasNumber};
-    Clock initialPasClock{params.worldClock.min};
-
-    int serviceType = Dist::getFromUniformDist(0, 9);
-
-    if (serviceType % 2 == 0) // Even numbered passengers go to coach
-    {
-        pas.serviceType = 0;
-        pas.arrivalTime = initialPasClock;
-        pas.serviceTime = Dist::getFromNormalDist(params.serviceDuration.coachPasAvgServiceDuration, 1);
-        coachRoot->pas;
-        coachQueue.front = coachRoot;
-        coachQueue.back = coachRoot;
-    }
-    else // Odd numbered passengers go to first class
-    {
-        pas.serviceType = 1;
-        pas.arrivalTime = initialPasClock;
-        pas.serviceTime = Dist::getFromNormalDist(params.serviceDuration.firstClassPasAvgServiceDuration, 1);
-        firstClassRoot->pas = pas;
-        firstClassQueue.front = firstClassRoot;
-        firstClassQueue.back = firstClassRoot;
-    }
-    params.firstClassQueue = &firstClassQueue;
-    params.coachQueue = &coachQueue;
-
-    cout << "Running..." << endl;
-
-    start(params, serviceStations);
+    start(coachQueue, firstClassQueue, coachStations, firstClassStations);
 
     return 0;
 }
 
-/********** Function Definitions *************/
-void start(Parameters &P, vector<ServiceStation> &serviceStations)
+void printCurrentPasServicing(long pasId, long arrivalToServiceTime, string serviceType)
 {
-    // vectors operating as stacks for vacant service stations, need to be split because first class can take coach when all of coach are occupied
-    vector<ServiceStation *> vacantCoachStations;
-    vector<ServiceStation *> vacantFirstClassStations;
+    cout << L_GREEN << "Passenger " << pasId << " is currently being serviced at time: "
+         << arrivalToServiceTime << "." << RESET << RED << serviceType << RESET << "\n";
+}
 
-    vector<ServiceStation *> occupiedCoachStations;
-    vector<ServiceStation *> occupiedFirstClassStations;
-    /**
-    * @brief 
-    * Lambda functions
-    */
-    auto getNextPasArrivalTime = [](long a, long b)
-    {
-        return Dist::getFromNormalDist(a, b);
-    };
-    auto getPasServiceTime = [](long a, long b)
-    {
-        return Dist::getFromNormalDist(a, b);
-    };
-    auto getPasServiceType = [](int a, int b)
-    {
-        auto i = Dist::getFromUniformDist(a, b);
-        return i % 2;
-    };
-    // When all stations are occupied, run this again
-    auto setVacantStations = [&vacantCoachStations, &vacantFirstClassStations](vector<ServiceStation> &serviceStations)
-    {
-        for (auto &station : serviceStations)
-        {
-            if (station.node == nullptr)
-            {
-                if (station.type == 0)
-                {
-                    vacantCoachStations.emplace_back(&station);
-                }
-                else
-                {
-                    vacantFirstClassStations.emplace_back(&station);
-                }
-            }
-        };
-    };
-
-    /**
-     * @brief 
-     * Naming aliases and variable unpacking
-     */
-    auto &coachPasAvgArrivalRate = P.arrivalRate.coachPasAvgArrivalRate;           // alias for coachPasAvgArrivalRate from Arrival struct
-    auto &firstClassPasAvgArrivalRate = P.arrivalRate.firstClassPasAvgArrivalRate; //alias for firstClassPasAvgArrivalRate from Arrival struct
-
-    auto &firstClassAvgServiceTime = P.serviceDuration.firstClassPasAvgServiceDuration;
-    auto &coachAvgServiceTime = P.serviceDuration.coachPasAvgServiceDuration;
-
-    auto &simuDuration = P.simuDuration;
-    auto &currentPasNumber = P.currentPasNumber;
-
-    auto &firstClassQueue = P.firstClassQueue;
-    auto &coachQueue = P.coachQueue;
-
-    auto &currentTime = P.worldClock.min;
-
-    auto nextCoachPasArrivalTime = getNextPasArrivalTime(coachPasAvgArrivalRate, 1);
-    auto nextFirstClassPasArrivalTime = getNextPasArrivalTime(firstClassPasAvgArrivalRate, 1);
-
-    long coachArrivalInterval = 0;
-    long firstClassArrivalInterval = 0;
-
-    long finishInterval = -1;
-
-    // set initial vacant service stations (should be all)
-    setVacantStations(serviceStations);
-
-    for (long i = currentTime; i <= simuDuration; i++)
-    {
-        coachArrivalInterval++;
-        firstClassArrivalInterval++;
-        finishInterval++;
-        if (vacantCoachStations.empty() || vacantFirstClassStations.empty())
-        {
-            setVacantStations(serviceStations);
-        }
-
-        if (coachArrivalInterval >= nextCoachPasArrivalTime)
-        {
-            coachQueue->enqueue(currentTime, currentPasNumber, 0, getPasServiceTime(coachAvgServiceTime, 1));
-            cout << YELLOW << "Passenger " << coachQueue->back->pas.pasId << " arrived." << RESET << MAGENTA << "(COACH)" << RESET << '\n';
-            nextCoachPasArrivalTime = getNextPasArrivalTime(coachPasAvgArrivalRate, 1);
-            currentPasNumber++;
-            coachArrivalInterval = 0;
-        }
-        if (firstClassArrivalInterval >= nextFirstClassPasArrivalTime) // if interval is greater or equal to the next arrival time, add the next pas in queue
-        {
-            firstClassQueue->enqueue(currentTime, currentPasNumber, 0, getPasServiceTime(firstClassAvgServiceTime, 1));
-            cout << YELLOW << "Passenger " << firstClassQueue->back->pas.pasId << " arrived." << RESET << MAGENTA << "(FIRST CLASS)" << RESET << '\n';
-            nextFirstClassPasArrivalTime = getNextPasArrivalTime(firstClassPasAvgArrivalRate, 1);
-            currentPasNumber++;
-            firstClassArrivalInterval = 0;
-        }
-        if ((firstClassQueue->front != nullptr) && (!vacantFirstClassStations.empty()))
-        {
-            servicePas(vacantFirstClassStations, firstClassQueue->front, occupiedFirstClassStations, finishInterval);
-        }
-        if ((coachQueue->front != nullptr) && (!vacantCoachStations.empty()))
-        {
-            servicePas(vacantCoachStations, coachQueue->front, occupiedCoachStations, finishInterval);
-        }
-        if (!occupiedCoachStations.empty())
-        {
-            for (auto &station : occupiedCoachStations)
-            {
-                if (station->remainingServiceTime.min <= finishInterval)
-                {
-                    cout << MAGENTA << "Passenger " << station->node->pas.pasId << " is finished being serviced."
-                         << RESET << "\n";
-                    station->remainingServiceTime = 0;
-                    occupiedCoachStations.erase(std::remove(occupiedCoachStations.begin(), occupiedCoachStations.end(), station), occupiedCoachStations.end());
-                    coachQueue->dequeue(i);
-                }
-            }
-        }
-        if (occupiedFirstClassStations.empty() == false)
-        {
-            for (auto &station : occupiedFirstClassStations)
-            {
-                if (station->remainingServiceTime.min <= finishInterval)
-                {
-                    cout << MAGENTA << "Passenger " << station->node->pas.pasId << " is finished being serviced."
-                         << RESET << "\n";
-                    station->remainingServiceTime = 0;
-                    occupiedFirstClassStations.erase(std::remove(occupiedFirstClassStations.begin(), occupiedFirstClassStations.end(), station), occupiedFirstClassStations.end());
-                    firstClassQueue->dequeue(i);
-                }
-            }
-        }
-    }
-};
-
-void servicePas(vector<ServiceStation *> &availableStations, Node *node, vector<ServiceStation *> &occupiedServiceStation, long &finishInterval)
+void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, long arrivalToServiceTime, string serviceType)
 {
-    auto station = availableStations.back();
-
-    station->node = node;
-    station->remainingServiceTime.min = node->pas.serviceTime.min;
-    station->totalTimeInUse += node->pas.serviceTime.min;
-
-    node->stationAssigned = station;
-
-    station->totalPassengersServiced += 1;
-
-    if (finishInterval > 0)
+    if (queue->front == nullptr || vacantServiceStations.empty() == true)
     {
-        if (station->remainingServiceTime.min < finishInterval)
-        {
-            finishInterval = station->remainingServiceTime.min;
-        }
-    }
-    else
-    {
-        finishInterval = station->remainingServiceTime.min;
-    }
-
-    occupiedServiceStation.emplace_back(station);
-    availableStations.pop_back();
-};
-
-void Queue::enqueue(long &currentTime, long &currentPasNumber, int serviceType, long serviceTime)
-{
-    auto newPas = new Node();
-    newPas->pas.pasId = currentPasNumber;
-    newPas->pas.serviceType = serviceType;
-    newPas->pas.arrivalTime.min = currentTime;
-    newPas->pas.serviceTime.min = serviceTime;
-
-    if (this->front == nullptr) // means the entire queue is empty
-    {
-        this->front = newPas;
-        this->front->next = newPas;
-        this->back = newPas;
-    }
-
-    this->back->next = newPas; // should be nullptr initially, set it to newPas
-    this->back = this->back->next;
-
-    this->currentSize = this->currentSize + 1;
-
-    if (this->currentSize >= this->maxSize)
-    {
-        this->maxSize = this->currentSize;
-    }
-};
-
-void Queue::dequeue(long &currentTime)
-{
-    if (this->front == nullptr)
-    {
-        this->currentSize = 0;
-        this->back = nullptr;
         return;
     }
-    else
+    auto station = vacantServiceStations.back();
+
+    station->currentPas = queue->front;
+    station->totalTimeInService += station->currentPas->serviceTimeNeeded;
+
+    vacantServiceStations.pop_back();
+
+    printCurrentPasServicing(queue->front->pasId, arrivalToServiceTime, serviceType);
+    queue->dequeue();
+}
+
+void printFinishedServiced(long pasId, string serviceType)
+{
+    cout << CYAN << "Passenger " << pasId << " has finished service."
+         << serviceType << RESET << "\n";
+}
+
+void getFinishedServicedPassengers(vector<ServiceStation *> &vacantServiceStations, vector<ServiceStation *> &serviceStations, string serviceType, long &finishInterval)
+{
+    bool resetFinishInterval = true;
+    if (vacantServiceStations.empty())
     {
-        this->currentSize = this->currentSize - 1;
-        this->front = this->front->next;
+        for (auto &i : serviceStations)
+        {
+            if (i->currentPas->serviceTimeNeeded <= finishInterval)
+            {
+                printFinishedServiced(i->currentPas->pasId, serviceType);
+                i->currentPas = nullptr;
+                vacantServiceStations.emplace_back(i);
+            }
+            else //
+            {
+                resetFinishInterval = false;
+            }
+        }
     }
+    if (resetFinishInterval == true) //
+    {
+        finishInterval = 0;
+    }
+}
+
+long getSimDuration()
+{
+    long simuDuration;
+    cout << "Please enter an unsigned integer value, this will be "
+         << "used as the stopping point for the simulation, all values represents the number of "
+         << "minutes elapsed in the simulation, which goes by iterations in a loop," << MAGENTA << " not real time." << RESET;
+    cout << '\n';
+    cout << "Duration time: ";
+    cin >> simuDuration;
+    return simuDuration;
 };
 
-long int Dist::getFromNormalDist(long a, long b)
+long getCoachAvgArrivalRate()
+{
+    long coachPasAvgArrivalRate;
+    cout << "Average passenger arrival rate of COACH station (for best measure, enter value significantly less than duration time): ";
+    cin >> coachPasAvgArrivalRate;
+    return coachPasAvgArrivalRate;
+};
+
+long getCoachAvgServiceDuration()
+{
+    long coachPasAvgServiceDuration;
+    cout << "Average passenger service duration of COACH station: ";
+    cin >> coachPasAvgServiceDuration;
+    return coachPasAvgServiceDuration;
+}
+
+long getFirstClassAvgArrivalRate()
+{
+    long firstClassPasAvgArrivalRate;
+    cout << "Average passenger arrival rate of FIRST CLASS station (for best measure, enter value significantly less than duration time): ";
+    cin >> firstClassPasAvgArrivalRate;
+    return firstClassPasAvgArrivalRate;
+}
+
+long getFirstClassAvgServiceDuration()
+{
+    long firstClassPasAvgServiceDuration;
+
+    cout << "Average passenger service duration of FIRST CLASS station: ";
+    cin >> firstClassPasAvgServiceDuration;
+
+    return firstClassPasAvgServiceDuration;
+}
+
+long getFromNormalDist(long a, long b)
 {
     random_device rd;
     mt19937 gen(rd());
     normal_distribution<long double> nD(a, b);
     return ceil(nD(gen));
-};
+}
 
-long int Dist::getFromUniformDist(long a, long b)
+long int getFromUniformDist(long a, long b)
 {
     random_device rd;
     mt19937 gen(rd());
     uniform_int_distribution<long int> uD(a, b);
     return uD(gen);
 };
+
+vector<ServiceStation *> createServiceStationVector(int n)
+{
+    vector<ServiceStation *> stationVec;
+    for (int i = 0; i <= n; i++)
+    {
+        stationVec.emplace_back(new ServiceStation());
+    }
+    return stationVec;
+}
+
+Node *getPas(long pasId, long serviceTimeNeeded, long arrivalTime)
+{
+    auto node = new Node(
+        pasId, serviceTimeNeeded, arrivalTime);
+    return node;
+}
+
+void printPasArrivalToQueue(long pasId, string serviceType)
+{
+    cout << YELLOW << "Passenger " << pasId << " arrived." << RESET << MAGENTA << serviceType << RESET << '\n';
+}
+
+void addToQueue(Queue *queue, Node *node, string serviceType)
+{
+    queue->enqueue(node);
+    printPasArrivalToQueue(queue->back->pasId, serviceType);
+}
+
+/**
+ * @brief 
+ * 
+ * @param coachQueue 
+ * @param firstClassQueue 
+ * @param coachStations 
+ * @param firstClassStations 
+ * @return ** void 
+ * 
+ * Driver Code
+ */
+void start(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceStation *> &coachStations, vector<ServiceStation *> &firstClassStations)
+{
+    auto simDuration = getSimDuration();
+
+    auto coachAvgrrivalInterval = getCoachAvgArrivalRate();
+    auto coachAvgServiceDuration = getCoachAvgServiceDuration();
+
+    auto firstClassAvgArrivalRate = getFirstClassAvgArrivalRate();
+    auto firstClassAvgServiceDuration = getFirstClassAvgServiceDuration();
+
+    auto nextCoachArrivalTime = getFromNormalDist(coachAvgrrivalInterval, 1);
+    auto nextFirstClassArrivalTime = getFromNormalDist(firstClassAvgArrivalRate, 1);
+
+    vector<ServiceStation *> vacantCoachStations = coachStations;
+    vector<ServiceStation *> vacantFirstClassStations = firstClassStations;
+
+    long nextCoachArrivalInterval = 0;
+    long nextFirstClassArrivalInterval = 0;
+
+    long coachServiceFinishInterval = 0;
+    long firstClassServiceFinishInterval = 0;
+
+    long currentPasId = 0;
+
+    for (long i = 0; i <= simDuration; i++)
+    {
+        nextCoachArrivalInterval++;
+        nextFirstClassArrivalInterval++;
+        coachServiceFinishInterval++;
+        firstClassServiceFinishInterval++;
+
+        if (nextCoachArrivalTime <= nextCoachArrivalInterval)
+        {
+            nextCoachArrivalTime = getFromNormalDist(coachAvgrrivalInterval, 1);
+            addToQueue(coachQueue, getPas(currentPasId, i, getFromNormalDist(coachAvgServiceDuration, 1)), "COACH");
+            nextCoachArrivalInterval = 0;
+            currentPasId++;
+        };
+
+        if (nextFirstClassArrivalTime <= nextFirstClassArrivalInterval)
+        {
+            nextFirstClassArrivalTime = getFromNormalDist(firstClassAvgArrivalRate, 1);
+            addToQueue(firstClassQueue, getPas(currentPasId, i, getFromNormalDist(firstClassAvgServiceDuration, 1)), "FIRST CLASS");
+            nextFirstClassArrivalInterval = 0;
+            currentPasId++;
+        };
+
+        servicePas(coachQueue, vacantCoachStations, i, "COACH");
+        servicePas(firstClassQueue, vacantFirstClassStations, i, "FIRST CLASS");
+
+        getFinishedServicedPassengers(vacantCoachStations, coachStations, "COACH", coachServiceFinishInterval);
+        getFinishedServicedPassengers(vacantFirstClassStations, firstClassStations, "FIRST CLASS", firstClassServiceFinishInterval);
+    }
+}
