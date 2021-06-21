@@ -45,7 +45,6 @@ struct Node
 {
     long pasId;
     long serviceTimeNeeded;
-    // long arrivalTime;
     Node *next;
     Node() : pasId(-1), serviceTimeNeeded(-1), next(nullptr){};
     Node(long pasId, long serviceTimeNeeded, long arrivalTime) : pasId(pasId),
@@ -99,10 +98,17 @@ struct ServiceStation
 vector<ServiceStation *> createServiceStationVector(int);
 Node *getPas(long, long, long, long);
 
+void emptyQueue(Queue *, Queue *,
+                vector<ServiceStation *> &, vector<ServiceStation *> &,
+                vector<ServiceStation *> &, vector<ServiceStation *> &, long);
+
+void printFinalStats();
 void printFinishedServiced(long, string);
+void printPasArrivalToQueue(long, string);
+void printEmptyingQueueMsg();
+
 void getFinishedServicedPassengers(vector<ServiceStation *> &, vector<ServiceStation *> &, string, long &);
 void servicePas(Queue *, vector<ServiceStation *> &, long, long, string);
-void printPasArrivalToQueue(long, string);
 void addToQueue(Queue *, long, Node *, string);
 void start(Queue *, Queue *, vector<ServiceStation *> &, vector<ServiceStation *> &);
 
@@ -119,11 +125,25 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
+void printEmptyingQueueMsg()
+{
+    cout << MAGENTA << "------------------"
+         << RESET
+         << L_GREEN << "Emptying Queue"
+         << RESET
+         << CYAN << "------------------" << RESET
+         << "\n";
+}
 void printCurrentPasServicing(long pasId, long arrivalToServiceTime, string serviceType)
 {
     cout << L_GREEN << "Passenger " << pasId << " is currently being serviced at time: "
          << arrivalToServiceTime << "." << RESET << RED << serviceType << RESET << "\n";
+}
+
+void printFinishedServiced(long pasId, string serviceType)
+{
+    cout << CYAN << "Passenger " << pasId << " has finished service."
+         << serviceType << RESET << "\n";
 }
 
 void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, long arrivalToServiceTime, string serviceType)
@@ -141,12 +161,6 @@ void servicePas(Queue *queue, vector<ServiceStation *> &vacantServiceStations, l
 
     printCurrentPasServicing(queue->front->pasId, arrivalToServiceTime, serviceType);
     queue->dequeue();
-}
-
-void printFinishedServiced(long pasId, string serviceType)
-{
-    cout << CYAN << "Passenger " << pasId << " has finished service."
-         << serviceType << RESET << "\n";
 }
 
 void getFinishedServicedPassengers(vector<ServiceStation *> &vacantServiceStations, vector<ServiceStation *> &serviceStations, string serviceType, long &finishInterval)
@@ -264,6 +278,27 @@ void addToQueue(Queue *queue, Node *node, string serviceType)
     printPasArrivalToQueue(queue->back->pasId, serviceType);
 }
 
+void emptyQueue(Queue *coachQueue, Queue *firstClassQueue,
+                vector<ServiceStation *> &vacantCoachStations, vector<ServiceStation *> &vacantFirstClassStations,
+                vector<ServiceStation *> &coachStations, vector<ServiceStation *> &firstClassStations,
+                long simDuration)
+{
+    printEmptyingQueueMsg();
+    long coachServiceFinishInterval = 0;
+    long firstClassServiceFinishInterval = 0;
+    while (coachQueue->front != nullptr && firstClassQueue->front != nullptr)
+    {
+        coachServiceFinishInterval++;
+        firstClassServiceFinishInterval++;
+        simDuration++;
+        servicePas(coachQueue, vacantCoachStations, simDuration, "COACH");
+        servicePas(firstClassQueue, vacantFirstClassStations, simDuration, "FIRST CLASS");
+
+        getFinishedServicedPassengers(vacantCoachStations, coachStations, "COACH", coachServiceFinishInterval);
+        getFinishedServicedPassengers(vacantFirstClassStations, firstClassStations, "FIRST CLASS", firstClassServiceFinishInterval);
+    }
+}
+
 /**
  * @brief 
  * 
@@ -328,4 +363,6 @@ void start(Queue *coachQueue, Queue *firstClassQueue, vector<ServiceStation *> &
         getFinishedServicedPassengers(vacantCoachStations, coachStations, "COACH", coachServiceFinishInterval);
         getFinishedServicedPassengers(vacantFirstClassStations, firstClassStations, "FIRST CLASS", firstClassServiceFinishInterval);
     }
+
+    emptyQueue(coachQueue, firstClassQueue, vacantCoachStations, vacantFirstClassStations, coachStations, firstClassStations, simDuration);
 }
